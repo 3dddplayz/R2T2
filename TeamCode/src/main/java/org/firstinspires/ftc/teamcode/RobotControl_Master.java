@@ -60,7 +60,8 @@ public class RobotControl_Master extends LinearOpMode {
     private Servo upServo;
     private Servo Push;
     private Servo grabberSecond;
-    double yaw;
+    double yaw, lastYaw;
+    double yawSum = 0;
     double correction;
     double gain;
     int count;
@@ -85,7 +86,7 @@ public class RobotControl_Master extends LinearOpMode {
     PIDlinear pidLifter;
     public int matCoEff = 7250; //<- motor encoder
     public int matCoEffStrafe = 7250;
-    public int matCoEffOd = 7250;
+    public double matCoEffOd = 60.5*2000/(4.8*Math.PI);
     //public int matCoEff = 6125; // <- odometry encoder
     private final int READ_PERIOD = 1;
     int targetPos;
@@ -99,8 +100,9 @@ public class RobotControl_Master extends LinearOpMode {
 
     public double globalX = 0;
     public double globalY = 0;
-    public int lastOdX = 0;
-    public int lastOdY = 0;
+    public double lastOdX = 0;
+    public double lastOdY = 0;
+
     public double yawOffset = 0;
     public double distance1;
     final static double L = 20.12; // distance between encoder 1 and 2 in cm
@@ -128,7 +130,7 @@ public class RobotControl_Master extends LinearOpMode {
         resetEncorder();
         imuStart();
         waitForStart();
-        moveOd(0,0.5,0,0.5);
+        moveOd(0,1,90,.2);
 
 //        if (opModeIsActive()) {
 //            resetRuntime();
@@ -247,7 +249,7 @@ public class RobotControl_Master extends LinearOpMode {
         driverPID = new PIDcontroller(0.008,0,0.005,60);
 
         turnPID = new PIDcontroller(0.015575,0,0.056,60);
-        movePID = new PIDlinear(0.000075,0.8,0.018,20); //<- motor encoders
+        movePID = new PIDlinear(0.00012,0,0,20); //<- motor encoders
         strafePID = new PIDlinear(0.00075,0.9,0.0185,20);
         // movePID = new PIDlinear(0.00014,0.25,0.002,20);
         pidLifter = new PIDlinear(0.00008,0,0.00005,60);
@@ -300,7 +302,7 @@ public class RobotControl_Master extends LinearOpMode {
     public void imuStart(){
         telemetry.addData("debug", 3.5);
         telemetry.update();
-        imp = new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.FORWARD, RevHubOrientationOnRobot.UsbFacingDirection.LEFT));
+        imp = new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.FORWARD, RevHubOrientationOnRobot.UsbFacingDirection.UP));
         telemetry.addData("debug", 4);
         telemetry.update();
         imu_IMU.initialize(imp);
@@ -530,13 +532,6 @@ public class RobotControl_Master extends LinearOpMode {
         telemetry.addData("key", Double.parseDouble(JavaUtil.formatNumber(angle, 2)));
         telemetry.update();
     }
-    public void getYawValue() {
-
-        angles = imu_IMU.getRobotYawPitchRollAngles();
-        yaw = angleSum(angles.getYaw(AngleUnit.DEGREES),yawOffset);
-
-
-    }
     public double[] rotate(double x, double y, double angle) {
         angle *= 2 * Math.PI / 360;
         double cos = Math.cos  (angle);
@@ -557,46 +552,108 @@ public class RobotControl_Master extends LinearOpMode {
         }
         return result;
     }
-    public void calcPos(){
-        getYawValue();
-        double[] output = rotate(xOd.getCurrentPosition()-lastOdX,yOd.getCurrentPosition()-lastOdY,yaw);
-        globalX += output[0];
-        globalY += output[1];
-        lastOdX = xOd.getCurrentPosition();
-        lastOdY = yOd.getCurrentPosition();
+    public void getYawValue() {
+        lastYaw = yaw;
+        angles = imu_IMU.getRobotYawPitchRollAngles();
+        yaw = -angleSum(angles.getYaw(AngleUnit.DEGREES),yawOffset);
     }
-    public void moveOd(double xPos, double yPos, double angle,  double maxPower){
-        resetEncorder();
+    public void calcPos(){
+        double xOdRad = 13.8029;
+        double yOdRad = 19.4581;//190
+        double odWheelDiam = 4.8;//cm
+        double odCostanst = 2000/(odWheelDiam*Math.PI);
         getYawValue();
+        double xPos = xOd.getCurrentPosition();
+        double yPos = yOd.getCurrentPosition();
+
+
+        double deltaYaw = (yaw - lastYaw);
+        if(Math.abs(deltaYaw+360)<Math.abs(deltaYaw)){
+            deltaYaw = deltaYaw+360;
+        } else if(Math.abs(deltaYaw-360)<Math.abs(deltaYaw)){
+            deltaYaw = deltaYaw-360;
+        }
+
+        yawSum += deltaYaw;
+        telemetry.addData("delta yaw", deltaYaw);
+        double y =(yPos-lastOdY) - deltaYaw*(yOdRad*Math.PI/180)*odCostanst;
+        double x =(xPos-lastOdX) + deltaYaw*(xOdRad*Math.PI/180)*odCostanst;
+        double[] output = rotate(x,y,yaw);
+        globalX += output[0];//-(deltaYaw*(xOdRad*2*Math.PI/360))/odWheelRad*encoderWheelRad;
+        globalY += output[1];
+
+
+//        telemetry.addData("y Correction", (yPos-lastOdY));
+//        telemetry.addData("y Correction Pos", y);
+//        telemetry.addData("y Correction value", deltaYaw*(yOdRad*Math.PI/180)*odCostanst);
+//
+//        telemetry.addData("y Correction", (xPos-lastOdX));
+//        telemetry.addData("y Correction Pos", x);
+//        telemetry.addData("y Correction value", deltaYaw*(xOdRad*Math.PI/180)*odCostanst);
+//        telemetry.addData("raw y", xPos);
+
+        lastOdX = xPos;
+        lastOdY = yPos;
+    }
+
+    public void moveOd(double xPos, double yPos, double angle,  double maxPower){
+        //don't call getYawValue() because its already called in calcPos();
+        resetEncorder();
         targetYaw = angle;
         double yPower,xPower,d;
-        double distanceX = Math.abs(xPos * matCoEffOd);
-        double distanceY = Math.abs(yPos * matCoEffOd);
+        double distanceX = xPos * matCoEffOd;
+        double distanceY = yPos * matCoEffOd;
 
         while(opModeIsActive()){
 //        while(Math.abs(targetYaw)+2>yaw && distanceY>globalY && distanceX>globalX && opModeIsActive()){
-            getYawValue();
             calcPos();
             xPower=movePID.update(distanceX,globalX);
             yPower=movePID.update(distanceY,globalY);
 
-            double[] rotPos = rotate(xPower, yPower, yaw);
+            double[] rotPos = rotate(xPower, yPower, -yaw);
 
             xPower = rotPos[0];
             yPower = rotPos[1];
 
-            correction = turnPID.update(targetYaw, yaw);
-
-            d = JavaUtil.maxOfList(JavaUtil.createListWith(JavaUtil.sumOfList(JavaUtil.createListWith(Math.abs(xPower), Math.abs(yPower))), correction, maxPower));
+            double x2 = turnPID.update(targetYaw, yaw);
 
 
-            front_right_drive.setPower(((yPower - xPower)+ correction) / d);
-            back_right_drive.setPower(((yPower + xPower)+ correction) / d);
-            back_left_drive.setPower(((yPower - xPower)- correction) / d);
-            front_left_drive.setPower(((yPower + xPower)- correction) / d);
+            double power = Math.hypot(xPower,yPower);
+            double theta = Math.atan2(yPower,xPower);
+
+            double sin = Math.sin(theta - Math.PI/4);
+            double cos = Math.cos(theta - Math.PI/4);
+
+
+
+            double max = Math.max(Math.abs(sin),Math.abs(cos));
+
+            double div = 1;
+            if((power+Math.abs(x2))>maxPower){
+                div = (power + Math.abs(x2))/(maxPower);
+            }
+
+            front_right_drive.setPower((power*sin/max-x2)/div);
+            back_right_drive.setPower((power*cos/max-x2)/div);
+            back_left_drive.setPower((power*sin/max+x2)/div);
+            front_left_drive.setPower((power*cos/max+x2)/div);
+
+
 
             lifterWhile();
-            addTelemetryMovement(0);
+            //custom telemetry
+            telemetry.addData("heading", JavaUtil.formatNumber(yaw, 1));
+            telemetry.addData("X pos", globalX);
+            telemetry.addData("Target x pos", distanceX);
+            telemetry.addData("X Dif", distanceX-globalX);
+            telemetry.addData("X power", xPower);
+            telemetry.addData("Y pos", globalY);
+            telemetry.addData("target Y pos", distanceY);
+            telemetry.addData("Y Dif", distanceY-globalY);
+            telemetry.addData("Y Dif", yPower);
+            telemetry.addData("correction", correction);
+            telemetry.addData("yaw sum", yawSum);
+            telemetry.update();
         }
         setMotorPower(0,0,0,0);
     }

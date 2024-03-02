@@ -2,60 +2,27 @@ package org.firstinspires.ftc.teamcode;
 
 
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.IMU;
-import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
-import org.firstinspires.ftc.robotcore.external.JavaUtil;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.IMU;
-import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
-import org.firstinspires.ftc.robotcore.external.JavaUtil;
-
-
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.IMU;
-import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
-import org.firstinspires.ftc.robotcore.external.JavaUtil;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.IMU;
-import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
-import org.firstinspires.ftc.robotcore.external.JavaUtil;
-
-
-import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.IMU;
-import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
-import org.firstinspires.ftc.robotcore.external.JavaUtil;
 import com.qualcomm.robotcore.hardware.CRServo;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
+
 import org.firstinspires.ftc.robotcore.external.JavaUtil;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.Movement.PIDcontroller;
 import org.firstinspires.ftc.teamcode.Movement.PIDlinear;
+import org.firstinspires.ftc.teamcode.Odometry.Odometry;
 
-@TeleOp(name = "TeleOp Master")
-public class TeleOpMaster extends LinearOpMode {
+@TeleOp(name = "TeleOp New Mecanum Drive")
+public class TeleOpNewDrive extends LinearOpMode {
 
     DcMotor back_left_drive,back_right_drive,front_right_drive,front_left_drive,right_pully,left_pully,xOd,yOd;
     private CRServo plane;
-    private Servo upServo,Push,grabberSecond,paddleR,paddleL;
+    private Servo upServo,Push,grabberSecond,paddleR,paddleL,left_trunk,right_trunk;
     private IMU imu_IMU;
     YawPitchRollAngles angles;
     double yaw,correction,gain;
@@ -63,7 +30,7 @@ public class TeleOpMaster extends LinearOpMode {
     //Lifter limits
     double lifter_power = 0;
     double lifter_gain = 1;
-    int max_lifter_height = 6500;
+    int max_lifter_height = 3100;
     double lifter_target;
 
     //Booleans
@@ -73,6 +40,9 @@ public class TeleOpMaster extends LinearOpMode {
     double paddlePos = 0.26;
     double globalX,globalY,lastOdX,lastOdY;
     double yawOffset = 0;
+    double lastYaw;
+    double yawSum=0;
+
 
     /**
      * This function is executed when this Op Mode is selected from the Driver Station.
@@ -85,7 +55,7 @@ public class TeleOpMaster extends LinearOpMode {
         double y = 0;
         double x = 0;
         double d;
-        double yaw;
+        double max;
         double targetYaw = 0;
         double deceleration;
         double joystickGain;
@@ -99,6 +69,9 @@ public class TeleOpMaster extends LinearOpMode {
         boolean dpad;
         globalX = 0;
         globalY = 0;
+        double x1 = 0;
+        double y1 = 0;
+        double h1 = 0;
         PIDcontroller pid;
         //double correction = 0;
         int cClamp = 0;
@@ -128,12 +101,13 @@ public class TeleOpMaster extends LinearOpMode {
         yOd = hardwareMap.get(DcMotor.class, "yOdo");
 
         plane = hardwareMap.get(CRServo.class, "plane");
+        left_trunk = hardwareMap.get(Servo.class, "left_trunk");
+        right_trunk = hardwareMap.get(Servo.class, "right_trunk");
         upServo = hardwareMap.get(Servo.class, "up_servo");
         Push = hardwareMap.get(Servo.class, "Push");
         grabberSecond = hardwareMap.get(Servo.class, "grabberSecond");
         paddleR = hardwareMap.get(Servo.class, "RightP");
         paddleL = hardwareMap.get(Servo.class, "LeftP");
-
 
         imu_IMU = hardwareMap.get(IMU.class, "imu");
         IMU.Parameters imp;
@@ -186,107 +160,59 @@ public class TeleOpMaster extends LinearOpMode {
         if (opModeIsActive()) {
             // Put run blocks here.
             while (opModeIsActive()) {
-                // Put loop blocks here.
-                yaw = imu_IMU.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
+                // Put loop blocks here
 
-                pid = new PIDcontroller(0.015575, 0, 0.016, 60);
+//                pid = new PIDcontroller(0.015575, 0, 0.016, 60);
                 PIDlinear pidLifter = new PIDlinear(0.00008, 0, 0.00005, 60);
 
                 //drive parameters
-                brakeMult = 1;
-                joystickGain = 0.12;
-                joystickGain2 = 0.24;
-                deceleration = 0.08;
-                deceleration2 = 0.14;
 
 
                 //drive code
                 dpadGain = 0.2;
-                if (gamepad1.right_bumper) {
-                    maxX = 0.175;
-                    maxY = 0.175;
-                    maxX2 = 0.175;
-                } else {
-                    maxX = 1 - (brakeMult * gamepad1.right_trigger);
-                    maxY = 1 - (brakeMult * gamepad1.right_trigger);
-                    maxX2 = 1 - (brakeMult * gamepad1.right_trigger);
-                }
-                x2 += gamepad1.right_stick_x * joystickGain2;
-                y += -gamepad1.left_stick_y * joystickGain;
-                x += gamepad1.left_stick_x * joystickGain;
-                d = JavaUtil.maxOfList(JavaUtil.createListWith(JavaUtil.sumOfList(JavaUtil.createListWith(Math.abs(x), Math.abs(y), Math.abs(x2))), 1));
+
+                //stick values
+                x2 = gamepad1.right_stick_x;
+                y = -gamepad1.left_stick_y;
+                x = gamepad1.left_stick_x;
+                //dpad code
                 if (gamepad1.dpad_left) {
-                    x += -dpadGain;
-                    maxX = 1;
-                    dpad = true;
+                    x = -1;
                 } else if (gamepad1.dpad_down) {
-                    y += -dpadGain;
-                    maxY = 1;
-                    dpad = true;
+                    y = -1;
                 } else if (gamepad1.dpad_right) {
-                    x += dpadGain;
-                    maxX = 1;
-                    dpad = true;
+                    x = 1;
                 } else if (gamepad1.dpad_up) {
-                    y += dpadGain;
-                    maxY = 1;
-                    dpad = true;
-                } else dpad = false;
+                    y = 1;
+                }
+                //brake code
 
 
-                // if(x2>0.05 || x2<-0.05){
-                //   cClamp = 0;
-                //   targetYaw = yaw;
-                // }
-                // else if(x>0.05 || x<-0.05){
-                //   cClamp = 1;
-                // }else  if(y>0.05 || y<-0.05){
-                //   cClamp = 1;
-                // } else{
-                //   cClamp = 0;
-                //   targetYaw = yaw;
-                // }
+                double power = Math.hypot(x, y);
+                double theta = Math.atan2(y, x);
 
-                correction = pid.update(targetYaw, yaw);
+                double sin = Math.sin(theta - Math.PI / 4);
+                double cos = Math.cos(theta - Math.PI / 4);
 
+                if (gamepad1.right_bumper) {
+                    power = Math.min(.175, power);
+                    if (Math.abs(x2) > 0) {
+                        x2 = Math.min(Math.abs(x2), .175) * x2 / Math.abs(x2);
+                    }
 
-                if (x > 0) {
-                    x -= deceleration;
-                    x = Math.min(x, maxX);
-                    x = Math.max(x, 0);
-                } else if (x < 0) {
-                    x += deceleration;
-                    x = Math.max(x, -maxX);
-                    x = Math.min(x, 0);
-                } else x = 0;
+                }
 
+                max = Math.max(Math.abs(sin), Math.abs(cos));
 
-                if (y > 0) {
-                    y -= deceleration;
-                    y = Math.min(y, maxY);
-                    y = Math.max(y, 0);
-                } else if (y < 0) {
-                    y += deceleration;
-                    y = Math.max(y, -maxY);
-                    y = Math.min(y, 0);
-                } else y = 0;
+                double div = 1;
+                if ((power + Math.abs(x2)) > 1) {
+                    div = power + Math.abs(x2);
+                }
 
-
-                if (x2 > 0) {
-                    x2 -= deceleration2;
-                    x2 = Math.min(x2, maxX2);
-                    x2 = Math.max(x2, 0);
-                } else if (x2 < 0) {
-                    x2 += deceleration2;
-                    x2 = Math.max(x2, -maxX2);
-                    x2 = Math.min(x2, 0);
-                } else x2 = 0;
-
-
-                front_right_drive.setPower(((((y - x) - x2) / d)) + correction * cClamp);
-                back_right_drive.setPower(((((y + x) - x2) / d)) + correction * cClamp);
-                back_left_drive.setPower(((((y - x) + x2) / d) - correction * cClamp));
-                front_left_drive.setPower((((y + x + x2) / d)) - correction * cClamp);
+                front_right_drive.setPower((power * sin / max - x2) / div);
+                back_right_drive.setPower((power * cos / max - x2) / div);
+                back_left_drive.setPower((power * sin / max + x2) / div);
+                front_left_drive.setPower((power * cos / max + x2) / div);
 
 
                 //Manual Grab code
@@ -312,6 +238,12 @@ public class TeleOpMaster extends LinearOpMode {
                 } else {
                     upServo.setPosition(upServo.getPosition() + .01 * gamepad2.left_stick_y);
                 }
+
+
+                left_trunk.setPosition(Math.min(1,Math.max(0,(left_trunk.getPosition() + .01 * gamepad2.right_stick_y))));
+                right_trunk.setPosition(Math.min(1,Math.max(0,(right_trunk.getPosition() + .01 * gamepad2.right_stick_y))));
+                telemetry.addData("trunk data", left_trunk.getPosition());
+
                 if (gamepad2.left_bumper) {
                     axOveride = true;
                     xPressed = false;
@@ -320,6 +252,14 @@ public class TeleOpMaster extends LinearOpMode {
                 if (!gamepad2.a && !gamepad2.x) {
                     axOveride = false;
 
+                }
+
+                if (gamepad2.x){
+                    left_trunk.setPosition(.06);
+                    right_trunk.setPosition(.06);
+                } else {
+                    left_trunk.setPosition(0);
+                    right_trunk.setPosition(1);
                 }
                 //Auto Grab code
 //                if (gamepad2.a && !downStarted && !axOveride) {
@@ -370,50 +310,7 @@ public class TeleOpMaster extends LinearOpMode {
 //                    right_pully.setTargetPosition(330);
 //                    left_pully.setTargetPosition(330);
 //                    right_pully.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-//                    left_pully.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-//                    lifter_target = (right_pully.getCurrentPosition() + left_pully.getCurrentPosition()) / 2;
-//                    right_pully.setPower(1 + pidLifter.update(lifter_target, right_pully.getCurrentPosition()));
-//                    left_pully.setPower(1 + pidLifter.update(lifter_target, left_pully.getCurrentPosition()));
-//                    if (!(Math.abs(gamepad2.left_stick_y) >= 0.05) && !overide) {
-//                        upServo.setPosition(0.894);
-//                    } else overide = true;
-//
-//                }
-//                if (!gamepad2.x && xPressed && !axOveride) {
-//                    if (!downStarted) {
-//                        resetRuntime();
-//                        downStarted = true;
-//                    }
-//                    if (grabberClosed) {
-//                        grabberSecond.setPosition(0);
-//                        grabberClosed = false;
-//                        sleep(200);
-//                    }
-//                    // paddleOveride = true;
-//                    // paddleR.setPosition(paddlePos);
-//                    // paddleL.setPosition(1);
-//                    right_pully.setTargetPosition(0);
-//                    left_pully.setTargetPosition(0);
-//                    right_pully.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-//                    left_pully.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-//                    lifter_target = (right_pully.getCurrentPosition() + left_pully.getCurrentPosition()) / 2;
-//                    right_pully.setPower(1 + pidLifter.update(lifter_target, right_pully.getCurrentPosition()));
-//                    left_pully.setPower(1 + pidLifter.update(lifter_target, left_pully.getCurrentPosition()));
-//
-//                    upServo.setPosition(.8867);
-//
-//                    if (getRuntime() >= 0.5) {
-//                        grabberClosed = true;
-//                        grabberSecond.setPosition(0.12);
-//                        xPressed = false;
-//                        downStarted = false;
-//                        overide = false;
-//                        paddleOveride = false;
-//                        paddleClosed = true;
-//                    }
-//                }
 
-//                Lifter code
                 if (gamepad2.left_trigger > 0.05 && (!aPressed) && (!xPressed)) {
                     right_pully.setTargetPosition(max_lifter_height);
                     left_pully.setTargetPosition(max_lifter_height);
@@ -469,6 +366,7 @@ public class TeleOpMaster extends LinearOpMode {
                     holdingLT = false;
                 }
 
+
                 if (paddleClosed && !paddleOveride) {
                     paddleR.setPosition(paddlePos);
                     paddleL.setPosition(1 - paddlePos);
@@ -481,6 +379,7 @@ public class TeleOpMaster extends LinearOpMode {
                 telemetry.addData("X pos: ", globalX);
                 telemetry.addData("Y pos: ", globalY);
                 telemetry.addData("Yaw: ", yaw);
+                telemetry.addData("Yaw Sum: ", yawSum);
                 telemetry.addData("UpServo: ", upServo.getPosition());
 
 
@@ -495,27 +394,40 @@ public class TeleOpMaster extends LinearOpMode {
         }
     }
     public void getYawValue() {
+        lastYaw = yaw;
         angles = imu_IMU.getRobotYawPitchRollAngles();
-        yaw = angleSum(angles.getYaw(AngleUnit.DEGREES),yawOffset);
+        yaw = -angleSum(angles.getYaw(AngleUnit.DEGREES),yawOffset);
     }
     public void calcPos(){
-        double xOdRad = 10;
-        double yOdRad = 190;//190
-        double odWheelRad = 48;
-        double encoderWheelRad = 1750;
+        double xOdRad = 13.8029;
+        double yOdRad = 19.4581;//190
+        double odWheelDiam = 4.8;//cm
+        double odCostanst = 2000/(odWheelDiam*Math.PI);
+        double xPos = xOd.getCurrentPosition();
+        double yPos = yOd.getCurrentPosition();
 
-        double lastYaw = yaw;
         getYawValue();
         double deltaYaw = (yaw - lastYaw);
+        if(Math.abs(deltaYaw+360)<Math.abs(deltaYaw)){
+            deltaYaw = deltaYaw+360;
+        } else if(Math.abs(deltaYaw-360)<Math.abs(deltaYaw)){
+            deltaYaw = deltaYaw-360;
+        }
+
+        yawSum += deltaYaw;
         telemetry.addData("delta yaw", deltaYaw);
-        double[] output = rotate(xOd.getCurrentPosition()-lastOdX,(yOd.getCurrentPosition()-lastOdY)-((deltaYaw*(yOdRad*2*Math.PI/360))/odWheelRad)*encoderWheelRad,yaw);
+        double y =(yPos-lastOdY) + deltaYaw*(yOdRad*Math.PI/180)*odCostanst;
+        double x =(xPos-lastOdX) + deltaYaw*(xOdRad*Math.PI/180)*odCostanst;
+        double[] output = rotate(x,y,yaw);
         globalX += output[0];//-(deltaYaw*(xOdRad*2*Math.PI/360))/odWheelRad*encoderWheelRad;
         globalY += output[1];
-        telemetry.addData("y", (yOd.getCurrentPosition()-lastOdY));
-        telemetry.addData("y Correction", output[1]);
-        telemetry.addData("y Yaw Correction", ((deltaYaw*(yOdRad*2*Math.PI/360))/odWheelRad)*encoderWheelRad);
-        lastOdX = xOd.getCurrentPosition();
-        lastOdY = yOd.getCurrentPosition();
+
+        lastOdX = xPos;
+        lastOdY = yPos;
+        telemetry.addData("y Correction", (yPos-lastOdY));
+        telemetry.addData("y Correction Pos", y);
+        telemetry.addData("y Correction value", deltaYaw*(yOdRad*Math.PI/180)*odCostanst);
+        telemetry.addData("raw y", yPos);
     }
 
 

@@ -18,6 +18,7 @@ public class PIDcontroller {
     public double update(double target, double position){
         LastError = Error;
         Error = target - position;
+
         double finalCorrection = Error*Pcontroller;
 
         Integral = (Integral*(ITime-1) + finalCorrection) / ITime;
