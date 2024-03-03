@@ -37,6 +37,8 @@ public class RobotControl_Master extends LinearOpMode {
     private static final boolean USE_WEBCAM = true;  // true for webcam, false for phone camera
     private TfodProcessor tfod;
     private VisionPortal visionPortal;
+    private Servo paddleR;
+    private Servo paddleL;
     public DcMotor back_left_drive;
     public DcMotor back_right_drive;
     public DcMotor front_left_drive;
@@ -124,14 +126,54 @@ public class RobotControl_Master extends LinearOpMode {
     public void runOpMode() {
 //        Tl=7.250;
 //        Tb=7.750;
-//        Tr=7.250;
+//        Tr=7.250;d
 
         createRobot();
         resetEncorder();
         imuStart();
         waitForStart();
-        moveOd(0,1,90,.5);
-        moveOd(0,0,180,.5);
+        paddleClose();
+        grabberOpen();
+        grabberUp();
+        liftAdjust(1000);  //right
+        liftAdjust(1000);
+        moveOd(1,-1.2,90,1);
+        moveOd(1.47,-1.2,90,1);
+        grabberClose();
+        sleep(500);
+        liftAdjust(-1000);
+        moveOd(1,-1.1,90,1);
+        moveOd(-.18,-1.15,-90,1);
+        paddleOpen();
+        sleep(500);
+        moveOd(1,-1.15,-90,1);
+        moveOd(1.45,0,-90,1);
+        //left
+//        moveOd(1,-.8,90,1);
+//        moveOd(1.47,-.8,90,1);
+//        grabberClose();
+//        sleep(500);
+//        liftAdjust(-1000);
+//        moveOd(1,-.8,90,1);
+//        moveOd(.65,-1.2,-90,1);
+//        paddleOpen();
+//        sleep(500);
+//        moveOd(1,-1,-90,1);
+//        moveOd(1.45,0,90,1);
+        //middle
+//        moveOd(1,-1,90,1);
+//        moveOd(1.47,-1,90,1);
+//        grabberClose();
+//        sleep(1000);
+//        liftAdjust(-1000);
+//        moveOd(0,-1.2,180,1);
+//        paddleOpen();
+//        sleep(500);
+//        moveOd(0,-.5,180,1);
+//        moveOd(1.45,0,90,1);
+
+
+
 
 
 //        if (opModeIsActive()) {
@@ -243,6 +285,8 @@ public class RobotControl_Master extends LinearOpMode {
         xOd = hardwareMap.get(DcMotor.class, "xOdo");
         yOd = hardwareMap.get(DcMotor.class, "yOdo");
         upServo = hardwareMap.get(Servo.class, "up_servo");
+        paddleR = hardwareMap.get(Servo.class, "RightP");
+        paddleL = hardwareMap.get(Servo.class, "LeftP");
         Push = hardwareMap.get(Servo.class, "Push");
         grabberSecond = hardwareMap.get(Servo.class, "grabberSecond");
         xOd.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -253,8 +297,8 @@ public class RobotControl_Master extends LinearOpMode {
 
         driverPID = new PIDcontroller(0.008,0,0.005,60);
 
-        turnPID = new PIDcontroller(0.015575,0,0.056,60);
-        movePID = new PIDlinear(0.00021,0.00022,0.00015,20); //<- motor encoders
+        turnPID = new PIDcontroller(0.01875,0,0.056,10);
+        movePID = new PIDlinear(0.00013,0,0.00004,5); //<- motor encoders
         strafePID = new PIDlinear(0.0009,0.9,0.0185,20);
         // movePID = new PIDlinear(0.00014,0.25,0.002,20);
         pidLifter = new PIDlinear(0.00008,0,0.00005,60);
@@ -456,7 +500,7 @@ public class RobotControl_Master extends LinearOpMode {
         sleep(1000);
     }
     public void grabberUp(){
-        upServo.setPosition(0.1);
+        upServo.setPosition(0.4);
 
     }
     public void grabberDown(){
@@ -489,7 +533,7 @@ public class RobotControl_Master extends LinearOpMode {
         left_pully.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         right_pully.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         yOd.setDirection(DcMotor.Direction.REVERSE);
-        right_pully.setDirection(DcMotor.Direction.REVERSE);
+        left_pully.setDirection(DcMotor.Direction.REVERSE);
         back_right_drive.setDirection(DcMotorSimple.Direction.FORWARD);
         front_left_drive.setDirection(DcMotorSimple.Direction.REVERSE);
         front_right_drive.setDirection(DcMotorSimple.Direction.FORWARD);
@@ -588,7 +632,19 @@ public class RobotControl_Master extends LinearOpMode {
         lastOdX = xPos;
         lastOdY = yPos;
     }
-
+    public void paddleOpen(){
+        paddleL.setPosition(.74);
+        paddleR.setPosition(.26);
+    }
+    public void paddleClose(){
+        paddleL.setPosition(1);
+        paddleR.setPosition(0);
+    }
+    public Boolean calcDif(double target, double pos, double sign){
+        if(target*sign>pos*sign){
+            return true;
+        } else return false;
+    }
     public void moveOd(double xPos, double yPos, double angle,  double maxPower){
         //don't call getYawValue() because its already called in calcPos();
         resetEncorder();
@@ -596,8 +652,12 @@ public class RobotControl_Master extends LinearOpMode {
         double yPower,xPower,d;
         double distanceX = xPos * matCoEffOd;
         double distanceY = yPos * matCoEffOd;
+        double startingX = globalX;
+        double startingY = globalY;
+        double buffer = 30;
 
-        while(opModeIsActive()&&(Math.abs(distanceX-globalX)>20||Math.abs(distanceY-globalY)>20||Math.abs(angle-yaw)>3)){
+
+        while(opModeIsActive()&&(Math.abs(distanceX-startingX)>Math.abs(globalX-startingX)+buffer||Math.abs(distanceY-startingY)>Math.abs(globalY-startingY)+buffer||Math.abs(angle-yaw)>1.5)){
             calcPos();
             xPower=movePID.update(distanceX,globalX);
             yPower=movePID.update(distanceY,globalY);

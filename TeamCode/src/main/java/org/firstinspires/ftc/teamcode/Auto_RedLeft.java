@@ -11,7 +11,8 @@ public class Auto_RedLeft extends RobotControl_Master {
         imuStart();
         waitForStart();
         if(opModeIsActive()){
-            addTelemetryMovement(10);
+            moveOd(3,0,0,1);
+            moveOd(0,0,0,1);
         }
     }
 }
