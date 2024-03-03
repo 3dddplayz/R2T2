@@ -130,7 +130,9 @@ public class RobotControl_Master extends LinearOpMode {
         resetEncorder();
         imuStart();
         waitForStart();
-        moveOd(0,1,90,.2);
+        moveOd(0,1,90,.5);
+        moveOd(0,0,180,.5);
+
 
 //        if (opModeIsActive()) {
 //            resetRuntime();
@@ -219,10 +221,6 @@ public class RobotControl_Master extends LinearOpMode {
 
     }
     public void createRobot() {
-
-
-        IMU.Parameters imp;
-        imp = new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.FORWARD, RevHubOrientationOnRobot.UsbFacingDirection.LEFT));
         // BNO055IMU.Parameters parameters = new BNO005IMU.Parameters();
         // parameters.angleUnit = BNO055IMU.AngleUnit.DEGREES;
         // parameters.accelUnit = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
@@ -230,7 +228,12 @@ public class RobotControl_Master extends LinearOpMode {
         // parameters.loggingEnabled = true;
         // parameters.loggingTag = "IMU";
         // parameters.acelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
+
         imu_IMU = hardwareMap.get(IMU.class, "imu");
+        imp = new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.FORWARD, RevHubOrientationOnRobot.UsbFacingDirection.UP));
+        imu_IMU.initialize(imp);
+        imu_IMU.resetYaw();
+
         back_left_drive = hardwareMap.get(DcMotor.class, "back_left_drive");
         back_right_drive = hardwareMap.get(DcMotor.class, "back_right_drive");
         front_left_drive = hardwareMap.get(DcMotor.class, "front_left_drive");
@@ -242,6 +245,8 @@ public class RobotControl_Master extends LinearOpMode {
         upServo = hardwareMap.get(Servo.class, "up_servo");
         Push = hardwareMap.get(Servo.class, "Push");
         grabberSecond = hardwareMap.get(Servo.class, "grabberSecond");
+        xOd.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        yOd.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
         distance = hardwareMap.get(DistanceSensor.class, "Distance");
 
@@ -249,8 +254,8 @@ public class RobotControl_Master extends LinearOpMode {
         driverPID = new PIDcontroller(0.008,0,0.005,60);
 
         turnPID = new PIDcontroller(0.015575,0,0.056,60);
-        movePID = new PIDlinear(0.00012,0,0,20); //<- motor encoders
-        strafePID = new PIDlinear(0.00075,0.9,0.0185,20);
+        movePID = new PIDlinear(0.00021,0.00022,0.00015,20); //<- motor encoders
+        strafePID = new PIDlinear(0.0009,0.9,0.0185,20);
         // movePID = new PIDlinear(0.00014,0.25,0.002,20);
         pidLifter = new PIDlinear(0.00008,0,0.00005,60);
 
@@ -300,17 +305,7 @@ public class RobotControl_Master extends LinearOpMode {
 
     }
     public void imuStart(){
-        telemetry.addData("debug", 3.5);
-        telemetry.update();
-        imp = new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.FORWARD, RevHubOrientationOnRobot.UsbFacingDirection.UP));
-        telemetry.addData("debug", 4);
-        telemetry.update();
-        imu_IMU.initialize(imp);
-        telemetry.addData("debug", 5);
-        telemetry.update();
-        imu_IMU.resetYaw();
-        telemetry.addData("debug", 6);
-        telemetry.update();
+
     }
     public double getAvMotorPos(){
         return (Math.abs(back_right_drive.getCurrentPosition())+Math.abs(back_left_drive.getCurrentPosition())+Math.abs(front_right_drive.getCurrentPosition())+Math.abs(front_left_drive.getCurrentPosition()))/4;
@@ -483,8 +478,6 @@ public class RobotControl_Master extends LinearOpMode {
         back_right_drive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         front_left_drive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         front_right_drive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        xOd.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        yOd.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         back_left_drive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         back_right_drive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         front_left_drive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -578,7 +571,7 @@ public class RobotControl_Master extends LinearOpMode {
         telemetry.addData("delta yaw", deltaYaw);
         double y =(yPos-lastOdY) - deltaYaw*(yOdRad*Math.PI/180)*odCostanst;
         double x =(xPos-lastOdX) + deltaYaw*(xOdRad*Math.PI/180)*odCostanst;
-        double[] output = rotate(x,y,yaw);
+        double[] output = rotate(x,y,-yaw);
         globalX += output[0];//-(deltaYaw*(xOdRad*2*Math.PI/360))/odWheelRad*encoderWheelRad;
         globalY += output[1];
 
@@ -604,13 +597,12 @@ public class RobotControl_Master extends LinearOpMode {
         double distanceX = xPos * matCoEffOd;
         double distanceY = yPos * matCoEffOd;
 
-        while(opModeIsActive()){
-//        while(Math.abs(targetYaw)+2>yaw && distanceY>globalY && distanceX>globalX && opModeIsActive()){
+        while(opModeIsActive()&&(Math.abs(distanceX-globalX)>20||Math.abs(distanceY-globalY)>20||Math.abs(angle-yaw)>3)){
             calcPos();
             xPower=movePID.update(distanceX,globalX);
             yPower=movePID.update(distanceY,globalY);
 
-            double[] rotPos = rotate(xPower, yPower, -yaw);
+            double[] rotPos = rotate(xPower, yPower, yaw);
 
             xPower = rotPos[0];
             yPower = rotPos[1];

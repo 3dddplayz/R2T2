@@ -18,6 +18,11 @@ public class PIDcontroller {
     public double update(double target, double position){
         LastError = Error;
         Error = target - position;
+        if(Math.abs(Error+360)<Math.abs(Error)){
+            Error = Error+360;
+        } else if(Math.abs(Error-360)<Math.abs(Error)){
+            Error = Error-360;
+        }
 
         double finalCorrection = Error*Pcontroller;
 

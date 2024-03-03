@@ -140,6 +140,7 @@ public class TeleOpNewDrive extends LinearOpMode {
         back_left_drive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         front_right_drive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         back_right_drive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        yOd.setDirection(DcMotor.Direction.REVERSE);
         xOd.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         yOd.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
@@ -403,10 +404,11 @@ public class TeleOpNewDrive extends LinearOpMode {
         double yOdRad = 19.4581;//190
         double odWheelDiam = 4.8;//cm
         double odCostanst = 2000/(odWheelDiam*Math.PI);
+        getYawValue();
         double xPos = xOd.getCurrentPosition();
         double yPos = yOd.getCurrentPosition();
 
-        getYawValue();
+
         double deltaYaw = (yaw - lastYaw);
         if(Math.abs(deltaYaw+360)<Math.abs(deltaYaw)){
             deltaYaw = deltaYaw+360;
@@ -416,18 +418,24 @@ public class TeleOpNewDrive extends LinearOpMode {
 
         yawSum += deltaYaw;
         telemetry.addData("delta yaw", deltaYaw);
-        double y =(yPos-lastOdY) + deltaYaw*(yOdRad*Math.PI/180)*odCostanst;
+        double y =(yPos-lastOdY) - deltaYaw*(yOdRad*Math.PI/180)*odCostanst;
         double x =(xPos-lastOdX) + deltaYaw*(xOdRad*Math.PI/180)*odCostanst;
-        double[] output = rotate(x,y,yaw);
+        double[] output = rotate(x,y,-yaw);
         globalX += output[0];//-(deltaYaw*(xOdRad*2*Math.PI/360))/odWheelRad*encoderWheelRad;
         globalY += output[1];
 
+
+//        telemetry.addData("y Correction", (yPos-lastOdY));
+//        telemetry.addData("y Correction Pos", y);
+//        telemetry.addData("y Correction value", deltaYaw*(yOdRad*Math.PI/180)*odCostanst);
+//
+//        telemetry.addData("y Correction", (xPos-lastOdX));
+//        telemetry.addData("y Correction Pos", x);
+//        telemetry.addData("y Correction value", deltaYaw*(xOdRad*Math.PI/180)*odCostanst);
+//        telemetry.addData("raw y", xPos);
+
         lastOdX = xPos;
         lastOdY = yPos;
-        telemetry.addData("y Correction", (yPos-lastOdY));
-        telemetry.addData("y Correction Pos", y);
-        telemetry.addData("y Correction value", deltaYaw*(yOdRad*Math.PI/180)*odCostanst);
-        telemetry.addData("raw y", yPos);
     }
 
 
