@@ -55,7 +55,7 @@ public class TeleOpMaster extends LinearOpMode {
 
     DcMotor back_left_drive,back_right_drive,front_right_drive,front_left_drive,right_pully,left_pully,xOd,yOd;
     private CRServo plane;
-    private Servo upServo,Push,grabberSecond,paddleR,paddleL;
+    private Servo upServo,Push,grabberSecond,paddleR,paddleL,leftTrunk,rightTrunk;
     private IMU imu_IMU;
     YawPitchRollAngles angles;
     double yaw,correction,gain;
@@ -63,7 +63,7 @@ public class TeleOpMaster extends LinearOpMode {
     //Lifter limits
     double lifter_power = 0;
     double lifter_gain = 1;
-    int max_lifter_height = 6500;
+    int max_lifter_height = 3000;
     double lifter_target;
 
     //Booleans
@@ -133,11 +133,13 @@ public class TeleOpMaster extends LinearOpMode {
         grabberSecond = hardwareMap.get(Servo.class, "grabberSecond");
         paddleR = hardwareMap.get(Servo.class, "RightP");
         paddleL = hardwareMap.get(Servo.class, "LeftP");
+        leftTrunk = hardwareMap.get(Servo.class, "left_trunk");
+        rightTrunk = hardwareMap.get(Servo.class, "right_trunk");
 
 
         imu_IMU = hardwareMap.get(IMU.class, "imu");
         IMU.Parameters imp;
-        imp = new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.FORWARD, RevHubOrientationOnRobot.UsbFacingDirection.UP));
+        imp = new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.FORWARD, RevHubOrientationOnRobot.UsbFacingDirection.LEFT));
 
         imu_IMU.initialize(imp);
         imu_IMU.resetYaw();
@@ -303,13 +305,13 @@ public class TeleOpMaster extends LinearOpMode {
                     rbPressed = false;
                 }
                 //Trunk code
-                // if (gamepad2.dpad_down){
-                //   upServo.setPosition(0.85);
-                // }
 
                 if (gamepad2.dpad_up) {
-                    upServo.setPosition(.264);
-                } else {
+                    upServo.setPosition(.4);
+                } else if (gamepad2.dpad_down) {
+                    upServo.setPosition(0.85);
+                }
+                else {
                     upServo.setPosition(upServo.getPosition() + .01 * gamepad2.left_stick_y);
                 }
                 if (gamepad2.left_bumper) {
@@ -322,48 +324,52 @@ public class TeleOpMaster extends LinearOpMode {
 
                 }
                 //Auto Grab code
-//                if (gamepad2.a && !downStarted && !axOveride) {
-//                    aPressed = true;
-//                    right_pully.setTargetPosition(394);
-//                    left_pully.setTargetPosition(394);
-//                    right_pully.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-//                    left_pully.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-//                    lifter_target = (right_pully.getCurrentPosition() + left_pully.getCurrentPosition()) / 2;
-//                    right_pully.setPower(1 + pidLifter.update(lifter_target, right_pully.getCurrentPosition()));
-//                    left_pully.setPower(1 + pidLifter.update(lifter_target, left_pully.getCurrentPosition()));
-//                    if (!(Math.abs(gamepad2.left_stick_y) >= 0.05) && !overide) {
-//                        upServo.setPosition(.98322);
-//                    } else overide = true;
-//                    grabberSecond.setPosition(0);
-//                    grabberClosed = false;
-//                }
-//                if (!gamepad2.a && aPressed && !axOveride) {
-//                    if (!downStarted) {
-//                        resetRuntime();
-//                        downStarted = true;
-//                    }
-//                    // paddleOveride = true;
-//                    // paddleR.setPosition(paddlePos);
-//                    // paddleL.setPosition(1);
-//                    right_pully.setTargetPosition(0);
-//                    left_pully.setTargetPosition(0);
-//                    right_pully.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-//                    left_pully.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-//                    lifter_target = (right_pully.getCurrentPosition() + left_pully.getCurrentPosition()) / 2;
-//                    right_pully.setPower(1 + pidLifter.update(lifter_target, right_pully.getCurrentPosition()));
-//                    left_pully.setPower(1 + pidLifter.update(lifter_target, left_pully.getCurrentPosition()));
-//                    upServo.setPosition(0.84);
-//
-//                    if (getRuntime() >= 0.5) {
-//                        grabberClosed = true;
-//                        grabberSecond.setPosition(0.12);
-//                        aPressed = false;
-//                        downStarted = false;
-//                        overide = false;
-//                        paddleOveride = false;
-//                        paddleClosed = true;
-//                    }
-//                }
+                if (gamepad2.a && !downStarted && !axOveride) {
+                    aPressed = true;
+                    Push.setPosition(0.2);
+                    right_pully.setTargetPosition(0);
+                    left_pully.setTargetPosition(0);
+                    right_pully.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                    left_pully.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                    lifter_target = (right_pully.getCurrentPosition() + left_pully.getCurrentPosition()) / 2;
+                    right_pully.setPower(1 + pidLifter.update(lifter_target, right_pully.getCurrentPosition()));
+                    left_pully.setPower(1 + pidLifter.update(lifter_target, left_pully.getCurrentPosition()));
+                    if (!(Math.abs(gamepad2.left_stick_y) >= 0.05) && !overide) {
+                        upServo.setPosition(.85);
+                    } else overide = true;
+                    grabberSecond.setPosition(0);
+                    grabberClosed = false;
+                }
+                if (!gamepad2.a && aPressed && !axOveride) {
+                    if (!downStarted) {
+                        resetRuntime();
+                        downStarted = true;
+                        grabberSecond.setPosition(0);
+                    }
+
+                    if(getRuntime()<0.1){
+                        paddleClosed = false;
+                    }else if(getRuntime()<0.2){
+                        leftTrunk.setPosition(.84);
+                        rightTrunk.setPosition(1-.84);
+                    }else if(getRuntime()<0.5){
+                        grabberSecond.setPosition(.12);
+                    }else if(getRuntime()<.7){
+                        paddleOveride = false;
+                        paddleClosed = true;
+                    } else if (getRuntime() <.8) {
+                        leftTrunk.setPosition(0);
+                        rightTrunk.setPosition(1);
+                    } else if (getRuntime() < .9) {
+
+                            grabberClosed = true;
+                            aPressed = false;
+                            downStarted = false;
+                            overide = false;
+
+                        }
+
+                }
 //
 //                if (gamepad2.x && !downStarted && !axOveride) {
 //                    xPressed = true;
@@ -499,21 +505,10 @@ public class TeleOpMaster extends LinearOpMode {
         yaw = angleSum(angles.getYaw(AngleUnit.DEGREES),yawOffset);
     }
     public void calcPos(){
-        double xOdRad = 10;
-        double yOdRad = 190;//190
-        double odWheelRad = 48;
-        double encoderWheelRad = 1750;
-
-        double lastYaw = yaw;
         getYawValue();
-        double deltaYaw = (yaw - lastYaw);
-        telemetry.addData("delta yaw", deltaYaw);
-        double[] output = rotate(xOd.getCurrentPosition()-lastOdX,(yOd.getCurrentPosition()-lastOdY)-((deltaYaw*(yOdRad*2*Math.PI/360))/odWheelRad)*encoderWheelRad,yaw);
-        globalX += output[0];//-(deltaYaw*(xOdRad*2*Math.PI/360))/odWheelRad*encoderWheelRad;
+        double[] output = rotate(xOd.getCurrentPosition()-lastOdX,yOd.getCurrentPosition()-lastOdY,yaw);
+        globalX += output[0];
         globalY += output[1];
-        telemetry.addData("y", (yOd.getCurrentPosition()-lastOdY));
-        telemetry.addData("y Correction", output[1]);
-        telemetry.addData("y Yaw Correction", ((deltaYaw*(yOdRad*2*Math.PI/360))/odWheelRad)*encoderWheelRad);
         lastOdX = xOd.getCurrentPosition();
         lastOdY = yOd.getCurrentPosition();
     }

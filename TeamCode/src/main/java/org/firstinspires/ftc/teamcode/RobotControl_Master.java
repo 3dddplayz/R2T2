@@ -60,8 +60,10 @@ public class RobotControl_Master extends LinearOpMode {
     double targetYaw = 0;
     YawPitchRollAngles angles;
     private Servo upServo;
-    private Servo Push;
+    public Servo Push;
     private Servo grabberSecond;
+    private Servo right_trunk;
+    private Servo left_trunk;
     double yaw, lastYaw;
     double yawSum = 0;
     double correction;
@@ -84,7 +86,7 @@ public class RobotControl_Master extends LinearOpMode {
     double lifter_target;
     PIDcontroller pid;
     PIDlinear strafePID;
-    PIDlinear movePID;
+    PIDlinear movePIDX,movePIDY;
     PIDlinear pidLifter;
     public int matCoEff = 7250; //<- motor encoder
     public int matCoEffStrafe = 7250;
@@ -119,8 +121,8 @@ public class RobotControl_Master extends LinearOpMode {
     public int oldRightPosition = 0;
     public int oldLeftPosition = 0;
     public int oldAuxPosition = 0;
-//    public XyhVector START_POS = new XyhVector
-//    public XyhVector pos = new XyhVector(START_POS);
+    public double timer;
+
 
     @Override
     public void runOpMode() {
@@ -132,22 +134,28 @@ public class RobotControl_Master extends LinearOpMode {
         resetEncorder();
         imuStart();
         waitForStart();
-        paddleClose();
-        grabberOpen();
-        grabberUp();
-        liftAdjust(1000);  //right
         liftAdjust(1000);
-        moveOd(1,-1.2,90,1);
-        moveOd(1.47,-1.2,90,1);
-        grabberClose();
-        sleep(500);
+        moveOd(0,3,0,1);
         liftAdjust(-1000);
-        moveOd(1,-1.1,90,1);
-        moveOd(-.18,-1.15,-90,1);
-        paddleOpen();
-        sleep(500);
-        moveOd(1,-1.15,-90,1);
-        moveOd(1.45,0,-90,1);
+        moveOd(0,0,0,1);
+        moveOd(0,0.25,0,1);
+        moveOd(0,0,0,1);
+//        paddleClose();
+//        grabberOpen();
+//        grabberUp();
+//        liftAdjust(1000);  //right
+//        liftAdjust(1000);
+//        moveOd(1,-1.2,90,1);
+//        moveOd(1.47,-1.2,90,1);
+//        grabberClose();
+//        sleep(500);
+//        liftAdjust(-1000);
+//        moveOd(1,-1.1,90,1);
+//        moveOd(-.18,-1.15,-90,1);
+//        paddleOpen();
+//        sleep(500);
+//        moveOd(1,-1.15,-90,1);
+//        moveOd(1.45,0,-90,1);
         //left
 //        moveOd(1,-.8,90,1);
 //        moveOd(1.47,-.8,90,1);
@@ -288,6 +296,8 @@ public class RobotControl_Master extends LinearOpMode {
         paddleR = hardwareMap.get(Servo.class, "RightP");
         paddleL = hardwareMap.get(Servo.class, "LeftP");
         Push = hardwareMap.get(Servo.class, "Push");
+        right_trunk = hardwareMap.get(Servo.class, "right_trunk");
+        left_trunk = hardwareMap.get(Servo.class, "left_trunk");
         grabberSecond = hardwareMap.get(Servo.class, "grabberSecond");
         xOd.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         yOd.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -297,8 +307,11 @@ public class RobotControl_Master extends LinearOpMode {
 
         driverPID = new PIDcontroller(0.008,0,0.005,60);
 
-        turnPID = new PIDcontroller(0.01875,0,0.056,10);
-        movePID = new PIDlinear(0.00013,0,0.00004,5); //<- motor encoders
+        turnPID = new PIDcontroller(0.0275,0,0.056,10);
+
+        movePIDY = new PIDlinear(0.00014,0.00006,0.00005,5);
+        movePIDX = new PIDlinear(0.00014,0.00006,0.00005,5);
+
         strafePID = new PIDlinear(0.0009,0.9,0.0185,20);
         // movePID = new PIDlinear(0.00014,0.25,0.002,20);
         pidLifter = new PIDlinear(0.00008,0,0.00005,60);
@@ -444,6 +457,14 @@ public class RobotControl_Master extends LinearOpMode {
         setMotorPower(0,0,0,0);
         imu_IMU.resetYaw();
         targetYaw = 0;
+    }
+    public void sidePixel(){
+        right_trunk.setPosition(.85);
+        left_trunk.setPosition(.15);
+    }
+    public void sideDown(){
+        right_trunk.setPosition(1);
+        left_trunk.setPosition(0);
     }
     public void lifterWhile(){
 
@@ -654,13 +675,22 @@ public class RobotControl_Master extends LinearOpMode {
         double distanceY = yPos * matCoEffOd;
         double startingX = globalX;
         double startingY = globalY;
-        double buffer = 30;
+        double buffer = 40;
+
+        double d1 = Math.sqrt(Math.pow(xPos-globalX,2)+Math.pow(yPos-globalY,2));
+        timer = d1 * 2;
+
+        telemetry.update();
+        double kaden = getRuntime();
 
 
-        while(opModeIsActive()&&(Math.abs(distanceX-startingX)>Math.abs(globalX-startingX)+buffer||Math.abs(distanceY-startingY)>Math.abs(globalY-startingY)+buffer||Math.abs(angle-yaw)>1.5)){
+
+        while((opModeIsActive()&&(Math.abs(distanceX-startingX)>Math.abs(globalX-startingX)+buffer||Math.abs(distanceY-startingY)>Math.abs(globalY-startingY)+buffer||Math.abs(angle-yaw)>1.5))){
+            kaden = getRuntime();
             calcPos();
-            xPower=movePID.update(distanceX,globalX);
-            yPower=movePID.update(distanceY,globalY);
+            xPower=movePIDX.update(distanceX,globalX);
+            yPower=movePIDY.update(distanceY,globalY);
+
 
             double[] rotPos = rotate(xPower, yPower, yaw);
 
@@ -694,6 +724,7 @@ public class RobotControl_Master extends LinearOpMode {
 
             lifterWhile();
             //custom telemetry
+            telemetry.addData("lifter pos",left_pully.getCurrentPosition());
             telemetry.addData("heading", JavaUtil.formatNumber(yaw, 1));
             telemetry.addData("X pos", globalX);
             telemetry.addData("Target x pos", distanceX);
@@ -705,8 +736,14 @@ public class RobotControl_Master extends LinearOpMode {
             telemetry.addData("Y Dif", yPower);
             telemetry.addData("correction", correction);
             telemetry.addData("yaw sum", yawSum);
+            telemetry.addData("distance",(power*sin/max-x2)/div);
             telemetry.update();
         }
         setMotorPower(0,0,0,0);
+    }
+    public void pause(double time){
+        while(getRuntime()<time){
+
+        }
     }
 }

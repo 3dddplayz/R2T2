@@ -22,7 +22,7 @@ public class TeleOpNewDrive extends LinearOpMode {
 
     DcMotor back_left_drive,back_right_drive,front_right_drive,front_left_drive,right_pully,left_pully,xOd,yOd;
     private CRServo plane;
-    private Servo upServo,Push,grabberSecond,paddleR,paddleL,left_trunk,right_trunk;
+    private Servo upServo,Push,grabberSecond,paddleR,paddleL,leftTrunk,rightTrunk;
     private IMU imu_IMU;
     YawPitchRollAngles angles;
     double yaw,correction,gain;
@@ -101,13 +101,13 @@ public class TeleOpNewDrive extends LinearOpMode {
         yOd = hardwareMap.get(DcMotor.class, "yOdo");
 
         plane = hardwareMap.get(CRServo.class, "plane");
-        left_trunk = hardwareMap.get(Servo.class, "left_trunk");
-        right_trunk = hardwareMap.get(Servo.class, "right_trunk");
         upServo = hardwareMap.get(Servo.class, "up_servo");
         Push = hardwareMap.get(Servo.class, "Push");
         grabberSecond = hardwareMap.get(Servo.class, "grabberSecond");
         paddleR = hardwareMap.get(Servo.class, "RightP");
         paddleL = hardwareMap.get(Servo.class, "LeftP");
+        leftTrunk = hardwareMap.get(Servo.class, "left_trunk");
+        rightTrunk = hardwareMap.get(Servo.class, "right_trunk");
 
         imu_IMU = hardwareMap.get(IMU.class, "imu");
         IMU.Parameters imp;
@@ -235,16 +235,17 @@ public class TeleOpNewDrive extends LinearOpMode {
                 // }
 
                 if (gamepad2.dpad_up) {
-                    upServo.setPosition(.264);
-                } else {
+                    upServo.setPosition(.4);
+                } else if (gamepad2.dpad_down) {
+                    upServo.setPosition(0.85);
+                }
+                else {
                     upServo.setPosition(upServo.getPosition() + .01 * gamepad2.left_stick_y);
                 }
-
-
-                left_trunk.setPosition(Math.min(1,Math.max(0,(left_trunk.getPosition() + .01 * gamepad2.right_stick_y))));
-                right_trunk.setPosition(Math.min(1,Math.max(0,(right_trunk.getPosition() + .01 * gamepad2.right_stick_y))));
-                telemetry.addData("trunk data", left_trunk.getPosition());
-
+                if(!downStarted&&!gamepad2.a) {
+                    leftTrunk.setPosition(Math.min(1-.87, Math.max(.022, (leftTrunk.getPosition() + .01 * gamepad2.right_stick_y))));
+                    rightTrunk.setPosition(Math.min(1-.022, Math.max(0.87, (rightTrunk.getPosition() - .01 * gamepad2.right_stick_y))));
+                }
                 if (gamepad2.left_bumper) {
                     axOveride = true;
                     xPressed = false;
@@ -255,12 +256,47 @@ public class TeleOpNewDrive extends LinearOpMode {
 
                 }
 
-                if (gamepad2.x){
-                    left_trunk.setPosition(.06);
-                    right_trunk.setPosition(.06);
-                } else {
-                    left_trunk.setPosition(0);
-                    right_trunk.setPosition(1);
+                if (gamepad2.a && !downStarted && !axOveride) {
+                    aPressed = true;
+                    right_pully.setTargetPosition(0);
+                    left_pully.setTargetPosition(0);
+                    right_pully.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                    left_pully.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                    lifter_target = (right_pully.getCurrentPosition() + left_pully.getCurrentPosition()) / 2;
+                    right_pully.setPower(.25 + pidLifter.update(lifter_target, right_pully.getCurrentPosition()));
+                    left_pully.setPower(.25 + pidLifter.update(lifter_target, left_pully.getCurrentPosition()));
+                    if (!(Math.abs(gamepad2.left_stick_y) >= 0.05) && !overide) {
+                        upServo.setPosition(.76);
+                    } else overide = true;
+                    grabberSecond.setPosition(0);
+                    grabberClosed = false;
+                }
+                if (!gamepad2.a && aPressed && !axOveride) {
+                    if (!downStarted) {
+                        resetRuntime();
+                        downStarted = true;
+                        grabberSecond.setPosition(0);
+                    }
+
+                    if(getRuntime()<0.4){
+                        paddleClosed = false;
+                        upServo.setPosition(.845);
+                    }else if(getRuntime()<0.5){
+                        leftTrunk.setPosition(1-.87);
+                        rightTrunk.setPosition(.87);
+                    }else if(getRuntime()<0.7){
+                        grabberSecond.setPosition(.12);
+                    }else if(getRuntime()<.85){
+                        paddleOveride = false;
+                        paddleClosed = true;
+                    } else if (getRuntime()<.9) {
+                        leftTrunk.setPosition(0);
+                        rightTrunk.setPosition(1);
+                        grabberClosed = true;
+                        aPressed = false;
+                        downStarted = false;
+                        overide = false;
+                    }
                 }
                 //Auto Grab code
 //                if (gamepad2.a && !downStarted && !axOveride) {
@@ -390,6 +426,8 @@ public class TeleOpNewDrive extends LinearOpMode {
                 telemetry.addData("Motor Position: ", (Math.abs(back_right_drive.getCurrentPosition()) + Math.abs(back_left_drive.getCurrentPosition()) + Math.abs(front_right_drive.getCurrentPosition()) + Math.abs(front_left_drive.getCurrentPosition())) / 4);
                 telemetry.update();
                 telemetry.addData("Push Position: ", Push.getPosition());
+                telemetry.addData("Right Trunk: ", rightTrunk.getPosition());
+                telemetry.addData("Left Trunk: ", leftTrunk.getPosition());
 
             }
         }
